@@ -15,73 +15,54 @@ use Illuminate\Validation\ValidationException;
 class AutentikasiController extends Controller
 {
     //
-    public function Register(Request $request)
-    {
+public function Register(Request $request)
+{
+    $request->validate([
+        'username' => 'required|unique:users',
+        'email' => 'required|email|unique:users',
+        'password' => 'required',
+        'name' => 'required',
+        'no_hp' => 'required',
+        'birthday' => 'required',
+        'gender' => 'required',
+    ]);
 
-        $validasi = Validator::make($request->all(), [
-            'name' => 'required',
-            'username' => 'required',
-            'email' => 'required|unique:users',
-            'password' => 'required',
-            'no_hp'  => 'required',
-            'birthday'  => 'required',
-            'gender'  => 'required',
-        ]);
+    // Simpan ke tabel users (tanpa bcrypt)
+    $user = User::create([
+        'username' => $request->username,
+        'email' => $request->email,
+        'password' => $request->password, // ⛔ plaintext, sesuai permintaan
+    ]);
 
-        if ($validasi->fails()) {
-            $val = $validasi->errors()->all();
-            return response()->json(['message' => $val[0]], 400);
-        }
+    // Simpan ke tabel profiles
+    $profile = Profile::create([
+        'user_id' => $user->id,
+        'name' => $request->name,
+        'no_hp' => $request->no_hp,
+        'birthday' => $request->birthday,
+        'gender' => $request->gender,
+    ]);
 
-        // $data_users = new User();
-        // $data_users->username = $request->username;
-        // $data_users->password = Hash::make($request->password);
-        // $data_users->email = $request->email;
+    // Login otomatis (pakai Auth::attempt)
+    Auth::attempt(['username' => $request->username, 'password' => $request->password]);
+
+    // Generate token (untuk API)
+    $token = $user->createToken('MyApp')->plainTextToken;
+
+    // ⚠️ Jangan ubah format response ini!
+    return response()->json([
+        'token' => $token,
+        'user' => [
+            'id' => $user->id,
+            'username' => $user->username,
+            'email' => $user->email,
+            'name' => $profile->name
+        ]
+    ], 200);
+}
 
 
-        // if ($data_users->save()) {
-        //     $data_profiles = new Profile();
-        //     $data_profiles->user_id = $data_users->id;
-        //     $data_profiles->name = $request->name;
-        //     $data_profiles->no_hp = $request->no_hp;
-        //     $data_profiles->birthday = $request->birthday;
-        //     $data_profiles->gender = $request->gender;
 
-        //     $token = $data_users->createToken('MyApp')->plainTextToken;
-
-        //     if ($data_profiles->save()) {
-        //         return response()->json([
-        //             'token' => $token,
-        //         ],200);
-        //     }
-        // }
-
-        $data_users = $request->only(['username', 'password', 'email']);
-        $data_profiles = $request->only(['name', 'no_hp', 'birthday', 'gender']);
-
-        $username = $request->username;
-        $email = $request->email;
-        $password = $request->password;
-
-        $users = User::create($data_users);
-        $user = User::where('username', $data_users['username'])->pluck('id');
-        $id_user = $user[0];
-        $data_profiles += ['user_id' => $id_user];
-
-        $profiles = Profile::create($data_profiles);
-
-        if (Auth::attempt(['username' => $username, 'password' => $password]) || Auth::attempt(['email' => $email, 'password' => $password])) {
-            $user = Auth::user();
-            $token = $user->createToken('MyApp')->plainTextToken; // Use $user instead of $data_users
-
-            if ($profiles->save()) {
-                return response()->json([
-                    'token' => $token,
-                ], 200);
-            }
-        }
- 
-    }
 
     public function PostLogin(Request $request)
     {

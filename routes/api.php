@@ -172,4 +172,9 @@ Route::get('/listdaftarproduk', [ProdukController::class, 'daftarproduk']);
 
 Route::get('/stok', [StokController::class, 'index']);
 
+use App\Http\Controllers\API\KuisionerController;
+
+Route::get('/kuisioner', [KuisionerController::class, 'index']);
+Route::post('/jawaban', [KuisionerController::class, 'simpanJawaban']);
+
 
